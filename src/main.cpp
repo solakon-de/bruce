@@ -552,7 +552,12 @@ void setup() {
         boot_screen_anim();
         startup_sound();
     }
-    if (bruceConfig.wifiAtStartup) {
+    if (bruceConfig.webUIAtStartup && bruceConfig.startupApp != "WebUI") {
+        // Also brings WiFi up, so it replaces the plain WiFi-at-startup task.
+        // The "WebUI" startup app does the same in the foreground.
+        log_i("Loading WebUI at Startup");
+        xTaskCreate(webUiStartupTask, "webUiStartup", 8192, NULL, 2, NULL);
+    } else if (bruceConfig.wifiAtStartup) {
         log_i("Loading Wifi at Startup");
         xTaskCreate(
             wifiConnectTask,   // Task function

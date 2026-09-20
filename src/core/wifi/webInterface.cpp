@@ -752,6 +752,35 @@ void configureWebServer() {
     Serial.println("Webserver started");
 }
 
+// Creates and starts the web server if it isn't running yet
+static void createWebServer() {
+    if (server) return;
+
+    Serial.println("Configuring Webserver ...");
+    if (psramFound()) server = (AsyncWebServer *)ps_malloc(sizeof(AsyncWebServer));
+    else server = (AsyncWebServer *)malloc(sizeof(AsyncWebServer));
+
+    new (server) AsyncWebServer(default_webserverporthttp);
+
+    configureWebServer();
+
+    isWebUIActive = true;
+}
+
+/**********************************************************************
+**  Function: webUiStartupTask
+**  Connects to a known network and serves the WebUI in the background,
+**  leaving screen and menus alone. No AP fallback: the WebUI must not
+**  be exposed on a default-password AP without the user asking for it.
+**********************************************************************/
+void webUiStartupTask(void *pvParameters) {
+    if (wifiConnectKnownNetSilent() && WiFi.getMode() == WIFI_MODE_STA) {
+        createWebServer();
+        tft.setLogging();
+    }
+    vTaskDelete(NULL);
+}
+
 /**********************************************************************
 **  Function: startWebUi
 **  Start the WebUI
@@ -770,16 +799,7 @@ void startWebUi(bool mode_ap) {
     if (!server) {
         // Clear this vector to free stack memory
         options.clear();
-
-        Serial.println("Configuring Webserver ...");
-        if (psramFound()) server = (AsyncWebServer *)ps_malloc(sizeof(AsyncWebServer));
-        else server = (AsyncWebServer *)malloc(sizeof(AsyncWebServer));
-
-        new (server) AsyncWebServer(default_webserverporthttp);
-
-        configureWebServer();
-
-        isWebUIActive = true;
+        createWebServer();
     }
     tft.setLogging();
     drawWebUiScreen(mode_ap);

@@ -23,6 +23,7 @@ JsonDocument BruceConfig::toJson() const {
     setting["soundVolume"] = soundVolume;
     setting["wifiAtStartup"] = wifiAtStartup;
     setting["wifiAutoConnect"] = wifiAutoConnect;
+    setting["webUIAtStartup"] = webUIAtStartup;
     setting["instantBoot"] = instantBoot;
     setting["keyboardLang"] = keyboardLang;
 
@@ -210,6 +211,12 @@ void BruceConfig::fromFile(bool checkFS) {
     }
     if (!setting["wifiAutoConnect"].isNull()) {
         wifiAutoConnect = setting["wifiAutoConnect"].as<int>();
+    } else {
+        count++;
+        log_e("Fail");
+    }
+    if (!setting["webUIAtStartup"].isNull()) {
+        webUIAtStartup = setting["webUIAtStartup"].as<int>();
     } else {
         count++;
         log_e("Fail");
@@ -480,6 +487,7 @@ void BruceConfig::validateConfig() {
     validateSoundVolumeValue();
     validateWifiAtStartupValue();
     validateWifiAutoConnectValue();
+    validateWebUIAtStartupValue();
 #ifdef HAS_RGB_LED
     validateLedBrightValue();
     validateLedColorValue();
@@ -588,6 +596,16 @@ void BruceConfig::setWifiAutoConnect(int value) {
 
 void BruceConfig::validateWifiAutoConnectValue() {
     if (wifiAutoConnect > 1) wifiAutoConnect = 1;
+}
+
+void BruceConfig::setWebUIAtStartup(int value) {
+    webUIAtStartup = value;
+    validateWebUIAtStartupValue();
+    saveFile();
+}
+
+void BruceConfig::validateWebUIAtStartupValue() {
+    if (webUIAtStartup > 1) webUIAtStartup = 1;
 }
 
 #ifdef HAS_RGB_LED

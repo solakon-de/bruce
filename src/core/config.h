@@ -46,6 +46,7 @@ public:
     int soundVolume = 100;
     int wifiAtStartup = 0;
     int wifiAutoConnect = 0;
+    int webUIAtStartup = 1;
     int instantBoot = 0;
     String keyboardLang = "QWERTY"; // "QWERTY" | "AZERTY" | "QWERTZ"
 
@@ -142,6 +143,8 @@ public:
     void validateWifiAtStartupValue();
     void setWifiAutoConnect(int value);
     void validateWifiAutoConnectValue();
+    void setWebUIAtStartup(int value);
+    void validateWebUIAtStartupValue();
 
 #ifdef HAS_RGB_LED
     // Led

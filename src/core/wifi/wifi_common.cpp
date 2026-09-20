@@ -375,8 +375,8 @@ bool wifiConnectMenu(wifi_mode_t mode) {
     return wifiConnected;
 }
 
-void wifiConnectTask(void *pvParameters) {
-    if (WiFi.isConnected()) return;
+bool wifiConnectKnownNetSilent() {
+    if (WiFi.isConnected()) return true;
 
     if (FORCE_RADIO_TEARDOWN_ON_SWITCH) {
         stopBLEStack();
@@ -384,25 +384,19 @@ void wifiConnectTask(void *pvParameters) {
     }
 
     // Check if WiFi is in transition
-    if (wifiTransitioning) {
-        vTaskDelete(NULL);
-        return;
-    }
+    if (wifiTransitioning) return false;
 
     // No-PSRAM guard: don't bring Wi-Fi up if the contiguous DMA block is too
     // small (e.g. BLE already active) — the scan would half-init the driver and
-    // crash on teardown. Silent bail: this is a background auto-connect task.
-    if (!radioHasMemForWifi()) {
-        vTaskDelete(NULL);
-        return;
-    }
+    // crash on teardown. Silent bail: this runs from background tasks.
+    if (!radioHasMemForWifi()) return false;
 
     WiFi.mode(WIFI_MODE_STA);
     int nets = WiFi.scanNetworks();
     String ssid;
     String pwd;
 
-    for (int i = 0; i < nets; i++) {
+    for (int i = 0; i < nets && !WiFi.isConnected(); i++) {
         ssid = WiFi.SSID(i);
         pwd = bruceConfig.getWifiPassword(ssid);
         if (pwd == "") continue;
@@ -426,8 +420,12 @@ void wifiConnectTask(void *pvParameters) {
     }
     WiFi.scanDelete();
 
+    return WiFi.isConnected();
+}
+
+void wifiConnectTask(void *pvParameters) {
+    wifiConnectKnownNetSilent();
     vTaskDelete(NULL);
-    return;
 }
 
 String checkMAC() { return String(WiFi.macAddress()); }

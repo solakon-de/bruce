@@ -170,6 +170,11 @@ void ConfigMenu::systemMenu() {
                  bruceConfig.wifiAtStartup = !bruceConfig.wifiAtStartup;
                  bruceConfig.saveFile();
              }                                                                                                           },
+            {String("WebUI Startup: ") + (bruceConfig.webUIAtStartup ? "ON" : "OFF"),
+             [this]() {
+                 // Toggle serving the WebUI in the background after boot
+                 bruceConfig.setWebUIAtStartup(!bruceConfig.webUIAtStartup);
+             }                                                                                                           },
             {String("WiFi Auto Connect: ") + (bruceConfig.wifiAutoConnect ? "ON" : "OFF"),
              [this]() {
                  // Toggle reconnecting to the WiFi network when the link drops

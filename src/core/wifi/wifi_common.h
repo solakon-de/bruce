@@ -48,9 +48,14 @@ String checkMAC();
 esp_err_t wifiRawTx(wifi_interface_t ifx, const void *frame, int len, uint8_t retries = 8);
 
 /**
- * @brief tries to connect to min(found_networks, maxSearch) networks
- * using stored passwords
+ * @brief Scans and connects to the first known network without touching the screen
+ * @note safe to call from background tasks; returns true if the STA link is up
  * @TODO fix: rn it skips open networks due to password == "" check
+ */
+bool wifiConnectKnownNetSilent();
+
+/**
+ * @brief FreeRTOS task wrapper around wifiConnectKnownNetSilent()
  */
 void wifiConnectTask(void *pvParameters);
 
