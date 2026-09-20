@@ -1170,6 +1170,36 @@ function updateShowHideNavigatingButton() {
     "<br>(click to toggle)";
 }
 
+let wifiAutoConnect = null; // unknown until the device reports it
+updateWifiAutoConnectButton();
+$(".act-wifi-auto-connect").addEventListener("click", async (e) => {
+  e.preventDefault();
+  if (wifiAutoConnect === null) return;
+  Dialog.loading.show("Saving WiFi Auto Connect...");
+  try {
+    await fetchWifiConfig({ autoConnect: wifiAutoConnect ? 0 : 1 });
+  } catch (error) {
+    alert("Failed to save WiFi Auto Connect: " + error.message);
+  } finally {
+    Dialog.loading.hide();
+  }
+});
+
+async function fetchWifiConfig(data) {
+  let req = await requestGet("/wifi", data);
+  wifiAutoConnect = !!JSON.parse(req).wifiAutoConnect;
+  updateWifiAutoConnectButton();
+}
+
+function updateWifiAutoConnectButton() {
+  let btn = document.querySelector(".act-wifi-auto-connect");
+  btn.disabled = wifiAutoConnect === null;
+  btn.innerHTML =
+    "WiFi Auto Connect<br>" +
+    (wifiAutoConnect === null ? "Unknown" : wifiAutoConnect ? "ON" : "OFF") +
+    "<br>(click to toggle)";
+}
+
 $(".act-reboot").addEventListener("click", async (e) => {
   e.preventDefault();
   if (!confirm("Are you sure you want to REBOOT the device?")) return;
@@ -1666,6 +1696,7 @@ window.addEventListener("popstate", (event) => {
 
 (async function () {
   await fetchSystemInfo();
+  fetchWifiConfig().catch(() => {}); // the button stays disabled if this fails
 
   // Get initial state from URL parameters or use defaults
   const urlParams = getURLParams();

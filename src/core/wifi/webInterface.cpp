@@ -734,6 +734,17 @@ void configureWebServer() {
                 request->send(
                     200, "text/plain", "User: " + String(usr) + " configured with password: " + String(pwd)
                 );
+            } else {
+                if (request->hasArg("autoConnect")) {
+                    bruceConfig.setWifiAutoConnect(request->arg("autoConnect").toInt() ? 1 : 0);
+                    wifiAutoReconnectArm();
+                }
+                // Without args it just reports the current Wi-Fi settings
+                request->send(
+                    200,
+                    "application/json",
+                    "{\"wifiAutoConnect\":" + String(bruceConfig.wifiAutoConnect) + "}"
+                );
             }
         }
     });
