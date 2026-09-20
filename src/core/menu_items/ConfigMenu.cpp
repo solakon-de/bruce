@@ -170,6 +170,12 @@ void ConfigMenu::systemMenu() {
                  bruceConfig.wifiAtStartup = !bruceConfig.wifiAtStartup;
                  bruceConfig.saveFile();
              }                                                                                                           },
+            {String("WiFi Auto Connect: ") + (bruceConfig.wifiAutoConnect ? "ON" : "OFF"),
+             [this]() {
+                 // Toggle reconnecting to the WiFi network when the link drops
+                 bruceConfig.setWifiAutoConnect(!bruceConfig.wifiAutoConnect);
+                 wifiAutoReconnectArm();
+             }                                                                                                           },
             {"Startup App",                                                         [this]() { setStartupApp(); }        },
             {"Hide/Show Apps",                                                      [this]() { mainMenu.hideAppsMenu(); }},
             {"Clock",                                                               [this]() { setClock(); }             },

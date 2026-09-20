@@ -71,6 +71,7 @@ void Wardriving::setup() {
 
 void Wardriving::begin_wifi() {
     WiFi.mode(WIFI_STA);
+    wifiAutoReconnectDisarm(); // the STA link is dropped on purpose to scan
     WiFi.disconnect();
 }
 

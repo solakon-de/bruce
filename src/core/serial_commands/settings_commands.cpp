@@ -1,4 +1,5 @@
 #include "settings_commands.h"
+#include "core/wifi/wifi_common.h"
 #include <globals.h>
 
 uint32_t settingsCallback(cmd *c) {
@@ -66,6 +67,10 @@ uint32_t settingsCallback(cmd *c) {
     if (setting_name == "tmz") bruceConfig.setTmz(setting_value.toFloat());
     if (setting_name == "soundEnabled") bruceConfig.setSoundEnabled(setting_value.toInt());
     if (setting_name == "wifiAtStartup") bruceConfig.setWifiAtStartup(setting_value.toInt());
+    if (setting_name == "wifiAutoConnect") {
+        bruceConfig.setWifiAutoConnect(setting_value.toInt());
+        wifiAutoReconnectArm();
+    }
     if (setting_name == "webUI") {
         bruceConfig.setWebUICreds(
             setting_value.substring(0, setting_value.indexOf(",")),

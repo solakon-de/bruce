@@ -108,6 +108,11 @@ void WifiMenu::configMenu() {
     std::vector<Option> wifiOptions;
 
     wifiOptions.push_back({"Change MAC", wifiMACMenu});
+    wifiOptions.push_back({bruceConfig.wifiAutoConnect ? "Auto Connect OFF" : "Auto Connect ON", [this]() {
+                               bruceConfig.setWifiAutoConnect(!bruceConfig.wifiAutoConnect);
+                               wifiAutoReconnectArm();
+                               configMenu();
+                           }});
     wifiOptions.push_back({"Add Evil Wifi", addEvilWifiMenu});
     wifiOptions.push_back({"Remove Evil Wifi", removeEvilWifiMenu});
     wifiOptions.push_back({bruceConfig.TerminalLog ? "SSH/Telnet Log OFF" : "SSH/Telnet Log ON", [this]() {

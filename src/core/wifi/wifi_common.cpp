@@ -13,8 +13,15 @@
 #include <esp_netif.h>
 #include <globals.h>
 
+#define WIFI_RECONNECT_POLL_MS 5000
+#define WIFI_RECONNECT_MAX_MS 30000
+
 static TaskHandle_t timezoneTaskHandle = NULL;
 static bool wifiTransitioning = false;
+
+static portMUX_TYPE wifiReconnectMux = portMUX_INITIALIZER_UNLOCKED;
+static volatile bool wifiReconnectArmed = false;
+static bool wifiReconnectTaskRunning = false;
 
 esp_err_t wifiRawTx(wifi_interface_t ifx, const void *frame, int len, uint8_t retries) {
     esp_err_t err = esp_wifi_80211_tx(ifx, frame, len, false);
@@ -51,6 +58,90 @@ void ensureWifiPlatform() {
     }
 }
 
+// The radio is only ours to reconnect when it sits idle in plain STA mode: attacks,
+// sniffers and scans drive it directly and must not be interrupted.
+static bool wifiCanReconnect() {
+    if (wifiTransitioning) return false;
+    if (WiFi.getMode() != WIFI_MODE_STA) return false;
+    bool promiscuous = false;
+    if (esp_wifi_get_promiscuous(&promiscuous) != ESP_OK || promiscuous) return false;
+    if (WiFi.scanComplete() == WIFI_SCAN_RUNNING) return false;
+    return true;
+}
+
+static void wifiReconnectTask(void *pvParameters) {
+    // The link is polled at a fixed pace; only the connect attempts back off
+    uint32_t retryMs = WIFI_RECONNECT_POLL_MS;
+    uint32_t sinceLastTryMs = 0;
+    bool dropped = false;
+
+    for (;;) {
+        while (wifiReconnectArmed && bruceConfig.wifiAutoConnect) {
+            vTaskDelay(pdMS_TO_TICKS(WIFI_RECONNECT_POLL_MS));
+            if (!wifiReconnectArmed || !bruceConfig.wifiAutoConnect) break;
+
+            if (WiFi.isConnected()) {
+                if (dropped) {
+                    dropped = false;
+                    wifiIP = WiFi.localIP().toString(); // DHCP may have handed out a new one
+                    log_i("WiFi link restored, IP: %s", wifiIP.c_str());
+                }
+                retryMs = WIFI_RECONNECT_POLL_MS;
+                sinceLastTryMs = 0;
+                continue;
+            }
+            if (!wifiCanReconnect()) continue;
+
+            sinceLastTryMs += WIFI_RECONNECT_POLL_MS;
+            if (sinceLastTryMs < retryMs) continue;
+
+            // The driver still holds the config of the last WiFi.begin(). Arduino's own
+            // auto-reconnect gives up after one try (e.g. AP still rebooting), so keep retrying.
+            dropped = true;
+            esp_err_t err = esp_wifi_connect();
+            log_i("WiFi link lost, reconnecting (err=%d)", err);
+            sinceLastTryMs = 0;
+            retryMs = min<uint32_t>(retryMs * 2, WIFI_RECONNECT_MAX_MS);
+        }
+
+        portENTER_CRITICAL(&wifiReconnectMux);
+        bool rearmed = wifiReconnectArmed && bruceConfig.wifiAutoConnect;
+        if (!rearmed) wifiReconnectTaskRunning = false;
+        portEXIT_CRITICAL(&wifiReconnectMux);
+        if (!rearmed) break;
+    }
+
+    vTaskDelete(NULL);
+}
+
+static void wifiStaStoppedEvent(arduino_event_id_t event) { wifiReconnectArmed = false; }
+
+void wifiAutoReconnectArm() {
+    if (!bruceConfig.wifiAutoConnect) return;
+    if (WiFi.getMode() != WIFI_MODE_STA || !WiFi.isConnected()) return;
+
+    static bool eventRegistered = false;
+
+    portENTER_CRITICAL(&wifiReconnectMux);
+    wifiReconnectArmed = true;
+    bool needTask = !wifiReconnectTaskRunning;
+    wifiReconnectTaskRunning = true;
+    bool needEvent = !eventRegistered;
+    eventRegistered = true;
+    portEXIT_CRITICAL(&wifiReconnectMux);
+
+    // Any module that stops the STA interface took the radio over on purpose
+    if (needEvent) WiFi.onEvent(wifiStaStoppedEvent, ARDUINO_EVENT_WIFI_STA_STOP);
+
+    if (needTask && xTaskCreate(wifiReconnectTask, "wifiReconnect", 4096, NULL, 1, NULL) != pdPASS) {
+        portENTER_CRITICAL(&wifiReconnectMux);
+        wifiReconnectTaskRunning = false;
+        portEXIT_CRITICAL(&wifiReconnectMux);
+    }
+}
+
+void wifiAutoReconnectDisarm() { wifiReconnectArmed = false; }
+
 bool _wifiConnect(const String &ssid, int encryption) {
     String password = bruceConfig.getWifiPassword(ssid);
     if (password == "" && encryption > 0) { password = keyboard(password, 63, "Network Password:", true); }
@@ -84,6 +175,7 @@ bool _wifiConnect(const String &ssid, int encryption) {
         wifiConnected = true;
         wifiIP = WiFi.localIP().toString();
         bruceConfig.addWifiCredential(ssid, password);
+        wifiAutoReconnectArm();
 
         // Start timezone update in background if not already running
         if (timezoneTaskHandle == NULL) {
@@ -151,6 +243,7 @@ bool _setupAP() {
 
 void wifiDisconnect() {
     wifiTransitioning = true;
+    wifiAutoReconnectDisarm();
 
     wifi_mode_t mode = WiFi.getMode();
     if (mode & WIFI_MODE_AP) {
@@ -319,6 +412,7 @@ void wifiConnectTask(void *pvParameters) {
             if (WiFi.isConnected()) {
                 wifiConnected = true;
                 wifiIP = WiFi.localIP().toString();
+                wifiAutoReconnectArm();
 
                 // Start timezone update in background if not already running
                 if (timezoneTaskHandle == NULL) {
@@ -384,6 +478,7 @@ bool wifiConnecttoKnownNet(void) {
     if (WiFi.isConnected()) {
         wifiConnected = true;
         wifiIP = WiFi.localIP().toString();
+        wifiAutoReconnectArm();
 
         // Start timezone update in background if not already running
         if (timezoneTaskHandle == NULL) {

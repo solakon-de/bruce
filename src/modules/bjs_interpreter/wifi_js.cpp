@@ -68,6 +68,7 @@ JSValue native_wifiConnect(JSContext *ctx, JSValue *this_val, int argc, JSValue 
         r = true;
         wifiIP = WiFi.localIP().toString();
         wifiConnected = true;
+        wifiAutoReconnectArm();
     }
 
     return JS_NewBool(r);

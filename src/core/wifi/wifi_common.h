@@ -59,6 +59,21 @@ void wifiConnectTask(void *pvParameters);
  */
 void ensureWifiPlatform();
 
+/**
+ * @brief Arms the reconnect watchdog for the current STA link.
+ * @note No-op unless bruceConfig.wifiAutoConnect is set and the STA link is up.
+ * While armed, a dropped link is retried (with backoff) until it comes back.
+ * Disarmed by wifiDisconnect() and whenever the STA interface is stopped.
+ */
+void wifiAutoReconnectArm();
+
+/**
+ * @brief Disarms the reconnect watchdog
+ * @note Call before dropping the STA link on purpose without wifiDisconnect()
+ * (e.g. WiFi.disconnect() to scan), so the watchdog doesn't reconnect behind your back
+ */
+void wifiAutoReconnectDisarm();
+
 // private
 /**
  * @brief Connects to wifiNetwork

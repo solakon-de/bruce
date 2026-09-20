@@ -1,6 +1,7 @@
 #if !defined(LITE_VERSION)
 #include "esp_connection.h"
 #include "core/display.h"
+#include "core/wifi/wifi_common.h"
 #include <WiFi.h>
 
 // Initialize the static instance pointer
@@ -38,6 +39,7 @@ bool EspConnection::beginSend() {
 
 bool EspConnection::beginEspnow() {
     WiFi.mode(WIFI_STA);
+    wifiAutoReconnectDisarm(); // a reconnect would retune the radio away from the ESP-NOW channel
 
     if (esp_now_init() != ESP_OK) {
         displayError("Error initializing share");
